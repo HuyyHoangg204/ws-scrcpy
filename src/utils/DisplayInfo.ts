@@ -1,3 +1,6 @@
+// app/displayinfo.ts
+
+
 import Size from './Size';
 
 export class DisplayInfo {

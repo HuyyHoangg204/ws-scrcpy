@@ -1,19 +1,21 @@
 <!-- src/App.vue -->
 <template>
   <div class="app">
-    <h1>Connected Devices</h1>
-    <DeviceList />
+    <router-view></router-view>
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import DeviceList from './components/DeviceList.vue';
 
 export default defineComponent({
-  name: 'App',
-  components: {
-    DeviceList
-  }
+  name: 'App'
 });
 </script>
+
+<style>
+.app {
+  width: 100%;
+  height: 100vh;
+}
+</style>

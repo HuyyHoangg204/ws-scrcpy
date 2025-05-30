@@ -1,88 +1,119 @@
 // src/services/DeviceService.ts
-export class DeviceService {
-  private ws: WebSocket | null = null;
-  private deviceListeners: ((devices: any[]) => void)[] = [];
-  private reconnectTimeout: number | null = null;
-  private isConnecting: boolean = false;
 
+// Interface định nghĩa trạng thái của thiết bị
+interface DeviceState {
+  devices: any[]; // Danh sách các thiết bị
+  state: 'device' | 'disconnected'; // Trạng thái kết nối: đã kết nối hoặc đã ngắt kết nối
+}
+
+export class DeviceService {
+  private ws: WebSocket | null = null; // Kết nối WebSocket
+  private deviceListeners: ((state: DeviceState) => void)[] = []; // Danh sách các callback functions
+  private reconnectTimeout: number | null = null; // Timer cho việc kết nối lại
+  private isConnecting: boolean = false; // Cờ đánh dấu trạng thái đang kết nối
+
+  // Phương thức thiết lập kết nối WebSocket
   connect() {
-    if (this.isConnecting) return;
+    if (this.isConnecting) return; // Tránh kết nối nhiều lần
     this.isConnecting = true;
 
     try {
-      // Kết nối tới multiplexer
+      // Khởi tạo kết nối WebSocket đến server multiplexer trên cổng 8000
       this.ws = new WebSocket("ws://localhost:8000/?action=multiplex");
 
+      // Xử lý sự kiện khi kết nối thành công
       this.ws.onopen = () => {
-        console.log("Connected to server");
+        console.log('DeviceService: WebSocket connection opened');
         this.isConnecting = false;
 
-        // Tạo message đúng format
+        // Tạo message theo protocol để tạo kênh giao tiếp:
+        // - Byte 0: Message Type (4 = CreateChannel)
+        // - Byte 1-4: Channel ID (0)
+        // - Byte 5+: Channel Code ("GTRC")
         const messageType = 4; // MessageType.CreateChannel
         const channelId = 0; // Channel ID mặc định
         const channelCode = new TextEncoder().encode("GTRC");
 
-        // Tạo buffer với đúng format
+        // Tạo buffer với đúng format protocol
         const buffer = new ArrayBuffer(5 + channelCode.length);
         const view = new DataView(buffer);
 
-        // Ghi messageType (1 byte)
+        // Ghi messageType vào byte đầu tiên
         view.setUint8(0, messageType);
 
-        // Ghi channelId (4 bytes)
+        // Ghi channelId vào 4 bytes tiếp theo
         view.setUint32(1, channelId, true); // true cho little-endian
 
-        // Ghi channel code
+        // Ghi channel code vào các bytes còn lại
         new Uint8Array(buffer, 5).set(channelCode);
 
-        // Gửi buffer
+        // Gửi buffer đến server
         if (this.ws) {
           this.ws.send(buffer);
         }
       };
 
+      // Xử lý các message nhận được từ server
       this.ws.onmessage = async (event) => {
         try {
-            console.log("Received message type:", event.data.constructor.name);
-            console.log("Message size:", event.data.size);  // với Blob dùng .size thay vì .byteLength
-    
-            // Chuyển Blob thành ArrayBuffer
-            const arrayBuffer = await event.data.arrayBuffer();
-            
-            const view = new DataView(arrayBuffer);
-            console.log("Message type:", view.getUint8(0));
-            console.log("Channel ID:", view.getUint32(1, true));
-    
-            const data = arrayBuffer.slice(5);
-            const decoder = new TextDecoder();
-            const jsonString = decoder.decode(data);
-            console.log("Decoded data:", jsonString);
-    
-            const deviceData = JSON.parse(jsonString);
-            console.log(deviceData);
-            
-            if (deviceData.list) {
-                console.log("Device list:", deviceData.list);
-                this.deviceListeners.forEach((listener) =>
-                    listener(deviceData.list)
-                );
-            }
-        } catch (e) {
-            console.error("Error processing message:", e);
-            // console.error("Stack:", e.stack);
-        }
-    };
+          // Chuyển đổi dữ liệu Blob thành ArrayBuffer
+          const arrayBuffer = await event.data.arrayBuffer();
 
+          // Đọc header của message (5 bytes đầu)
+          const view = new DataView(arrayBuffer);
+
+          // Đọc và giải mã phần data JSON
+          const data = arrayBuffer.slice(5); // Bỏ qua 5 bytes header
+          const decoder = new TextDecoder();
+          const jsonString = decoder.decode(data);
+
+          // Parse JSON và xử lý dữ liệu
+          const deviceData = JSON.parse(jsonString);
+          
+          // Xử lý 2 loại message: devicelist và device
+          if (deviceData.type === 'devicelist') {
+            // Xử lý danh sách thiết bị
+            const deviceList = deviceData.data?.list || [];
+            const device = deviceList[0];
+            const state = device?.state || 'disconnected';
+            
+            // Thông báo cho tất cả listeners về danh sách thiết bị mới
+            this.deviceListeners.forEach((listener) => {
+              listener({
+                devices: deviceList,
+                state: state
+              });
+            });
+          } else if (deviceData.type === 'device') {
+            // Xử lý thông tin của một thiết bị cụ thể
+            const device = deviceData.data?.device;
+            const state = device?.state || 'disconnected';
+            
+            // Thông báo cho tất cả listeners về thông tin thiết bị mới
+            this.deviceListeners.forEach((listener) => {
+              listener({
+                devices: device ? [device] : [],
+                state: state
+              });
+            });
+          }
+        } catch (e) {
+          console.error("Error processing message:", e);
+        }
+      };
+
+      // Xử lý sự kiện đóng kết nối
       this.ws.onclose = () => {
         console.log("Disconnected from server, attempting to reconnect...");
         this.isConnecting = false;
-        this.scheduleReconnect();
+        this.scheduleReconnect(); // Lên lịch kết nối lại
       };
 
+      // Xử lý sự kiện lỗi
       this.ws.onerror = (error) => {
         console.error("WebSocket error:", error);
         this.isConnecting = false;
-        this.scheduleReconnect();
+        this.scheduleReconnect(); // Lên lịch kết nối lại
       };
     } catch (error) {
       console.error("Failed to connect:", error);
@@ -91,25 +122,28 @@ export class DeviceService {
     }
   }
 
+  // Lên lịch kết nối lại sau 3 giây
   private scheduleReconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
     }
     this.reconnectTimeout = window.setTimeout(() => {
       this.connect();
-    }, 3000); // Thử kết nối lại sau 3 giây
+    }, 3000);
   }
 
-  onDeviceList(callback: (devices: any[]) => void) {
+  // Đăng ký callback để nhận thông tin thiết bị
+  onDeviceList(callback: (state: DeviceState) => void) {
     this.deviceListeners.push(callback);
+    // Trả về hàm cleanup để hủy đăng ký callback
     return () => {
-      // Cleanup function to remove listener
       this.deviceListeners = this.deviceListeners.filter(
         (cb) => cb !== callback
       );
     };
   }
 
+  // Ngắt kết nối WebSocket và dọn dẹp
   disconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);

@@ -63,11 +63,6 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
   }
 
   private handleInitialInfo(data: ArrayBuffer): void {
-    console.log('[StreamReceiver] Parsing initial info:', {
-        totalSize: data.byteLength,
-        magicBytesLength: MAGIC_BYTES_INITIAL.length
-    });
-
     let offset = MAGIC_BYTES_INITIAL.length;
 
     // Lưu lại nameBytes để xử lý sau
@@ -78,7 +73,7 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
     let dvOffset = 0;
 
     const displaysCount = view.getInt32(dvOffset, false); // Big-endian
-    console.log('[StreamReceiver] Found displays:', displaysCount);
+
     dvOffset += 4;
 
     this.displayInfoMap.clear();
@@ -89,35 +84,50 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
     const uint8 = new Uint8Array(data, offset);
 
     for (let i = 0; i < displaysCount; i++) {
-        // DisplayInfo
-        const displayInfoBytes = uint8.slice(dvOffset, dvOffset + DisplayInfo.BUFFER_LENGTH);
-        const displayInfo = DisplayInfo.fromBuffer(Buffer.from(displayInfoBytes));
-        const { displayId } = displayInfo;
-        this.displayInfoMap.set(displayId, displayInfo);
-        dvOffset += DisplayInfo.BUFFER_LENGTH;
+      // DisplayInfo
+      const displayInfoBytes = uint8.slice(
+        dvOffset,
+        dvOffset + DisplayInfo.BUFFER_LENGTH
+      );
+      const displayInfo = DisplayInfo.fromBuffer(Buffer.from(displayInfoBytes));
+      const { displayId } = displayInfo;
+      this.displayInfoMap.set(displayId, displayInfo);
+      dvOffset += DisplayInfo.BUFFER_LENGTH;
 
-        // connectionCount
-        const connectionCount = view.getInt32(dvOffset, false);
-        this.connectionCountMap.set(displayId, connectionCount);
-        dvOffset += 4;
+      // connectionCount
+      const connectionCount = view.getInt32(dvOffset, false);
+      this.connectionCountMap.set(displayId, connectionCount);
+      dvOffset += 4;
 
-        // screenInfo
-        const screenInfoBytesCount = view.getInt32(dvOffset, false);
-        dvOffset += 4;
-        if (screenInfoBytesCount) {
-            const screenInfoBytes = uint8.slice(dvOffset, dvOffset + screenInfoBytesCount);
-            this.screenInfoMap.set(displayId, ScreenInfo.fromBuffer(Buffer.from(screenInfoBytes)));
-            dvOffset += screenInfoBytesCount;
-        }
+      // screenInfo
+      const screenInfoBytesCount = view.getInt32(dvOffset, false);
+      dvOffset += 4;
+      if (screenInfoBytesCount) {
+        const screenInfoBytes = uint8.slice(
+          dvOffset,
+          dvOffset + screenInfoBytesCount
+        );
+        this.screenInfoMap.set(
+          displayId,
+          ScreenInfo.fromBuffer(Buffer.from(screenInfoBytes))
+        );
+        dvOffset += screenInfoBytesCount;
+      }
 
-        // videoSettings
-        const videoSettingsBytesCount = view.getInt32(dvOffset, false);
-        dvOffset += 4;
-        if (videoSettingsBytesCount) {
-            const videoSettingsBytes = uint8.slice(dvOffset, dvOffset + videoSettingsBytesCount);
-            this.videoSettingsMap.set(displayId, VideoSettings.fromBuffer(Buffer.from(videoSettingsBytes)));
-            dvOffset += videoSettingsBytesCount;
-        }
+      // videoSettings
+      const videoSettingsBytesCount = view.getInt32(dvOffset, false);
+      dvOffset += 4;
+      if (videoSettingsBytesCount) {
+        const videoSettingsBytes = uint8.slice(
+          dvOffset,
+          dvOffset + videoSettingsBytesCount
+        );
+        this.videoSettingsMap.set(
+          displayId,
+          VideoSettings.fromBuffer(Buffer.from(videoSettingsBytes))
+        );
+        dvOffset += videoSettingsBytesCount;
+      }
     }
 
     // encoders
@@ -126,12 +136,12 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
     dvOffset += 4;
 
     for (let i = 0; i < encodersCount; i++) {
-        const nameLength = view.getInt32(dvOffset, false);
-        dvOffset += 4;
-        const nameBytesArr = uint8.slice(dvOffset, dvOffset + nameLength);
-        dvOffset += nameLength;
-        const name = Util.utf8ByteArrayToString(nameBytesArr);
-        this.encodersSet.add(name);
+      const nameLength = view.getInt32(dvOffset, false);
+      dvOffset += 4;
+      const nameBytesArr = uint8.slice(dvOffset, dvOffset + nameLength);
+      dvOffset += nameLength;
+      const name = Util.utf8ByteArrayToString(nameBytesArr);
+      this.encodersSet.add(name);
     }
 
     // clientId
@@ -144,8 +154,6 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
 
     this.hasInitialInfo = true;
     this.triggerInitialInfoEvents();
-
-    
   }
 
   private static EqualArrays(
@@ -173,50 +181,63 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
   }
 
   protected onSocketClose(ev: CloseEvent): void {
-    console.log(`${TAG}. WS closed: ${ev.reason}`);
     this.emit("disconnected", ev);
   }
 
   protected onSocketMessage(event: MessageEvent): void {
     if (event.data instanceof ArrayBuffer) {
-        // works only because MAGIC_BYTES_INITIAL and MAGIC_BYTES_MESSAGE have same length
-        if (event.data.byteLength > MAGIC_BYTES_INITIAL.length) {
-            const magicBytes = new Uint8Array(event.data, 0, MAGIC_BYTES_INITIAL.length);
-            if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL)) {
-              console.log('[SOCKET] Received INITIAL info');
-                this.handleInitialInfo(event.data);
-                return;
-            }
-            if (StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)) {
-                const message = DeviceMessage.fromBuffer(event.data);
-                console.log('[SOCKET] Received DEVICE message:', message);
-                this.emit('deviceMessage', message);
-                return;
-            }
+      // works only because MAGIC_BYTES_INITIAL and MAGIC_BYTES_MESSAGE have same length
+      if (event.data.byteLength > MAGIC_BYTES_INITIAL.length) {
+        const magicBytes = new Uint8Array(
+          event.data,
+          0,
+          MAGIC_BYTES_INITIAL.length
+        );
+
+        // Log magic bytes để debug
+
+        if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL)) {
+          this.handleInitialInfo(event.data);
+          return;
         }
-        console.log('[SOCKET] Received VIDEO stream, size:', event.data.byteLength);
-        this.emit('video', new Uint8Array(event.data));
+        if (
+          StreamReceiver.EqualArrays(
+            magicBytes,
+            DeviceMessage.MAGIC_BYTES_MESSAGE
+          )
+        ) {
+          const message = DeviceMessage.fromBuffer(event.data);
+
+          this.emit("deviceMessage", message);
+          return;
+        }
+      }
+
+      this.emit("video", new Uint8Array(event.data));
     }
-}
+  }
 
   private getMessageType(data: Uint8Array): string {
-    if (data.length < MAGIC_BYTES_INITIAL.length) return 'unknown';
-    
+    if (data.length < MAGIC_BYTES_INITIAL.length) return "unknown";
+
     const magicBytes = data.slice(0, MAGIC_BYTES_INITIAL.length);
-    if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL)) return 'initial';
-    if (StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)) return 'device';
-    return 'video';
+    if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL))
+      return "initial";
+    if (
+      StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)
+    )
+      return "device";
+    return "video";
   }
 
   private isKeyFrame(data: Uint8Array): boolean {
     // Basic h264 NAL unit type check - this is a simplified check
     if (data.length < 5) return false;
-    const nalType = data[4] & 0x1F;
+    const nalType = data[4] & 0x1f;
     return nalType === 5; // 5 = IDR frame
   }
 
   protected onSocketOpen(): void {
-    console.log(`${TAG} WebSocket connection opened`);
     this.emit("connected", void 0);
     let e = this.events.shift();
     while (e) {

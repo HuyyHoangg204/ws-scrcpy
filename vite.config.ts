@@ -14,7 +14,6 @@ export default defineConfig({
     'process.env': {}, // 👈 thêm dòng này nếu có dùng process.env
   },
   optimizeDeps: {
-    include: ['buffer'],
     esbuildOptions: {
       define: {
         global: 'globalThis',
@@ -22,7 +21,6 @@ export default defineConfig({
       plugins: [
         NodeGlobalsPolyfillPlugin({
           buffer: true,
-          process: true
         }),
         NodeModulesPolyfillPlugin(),
       ]
@@ -31,7 +29,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
-      buffer: 'buffer/',
+      buffer: 'buffer', // 👈 alias cho module buffer
     }
   },
   assetsInclude: ['**/*.wasm', '**/*.wasm.asset'],

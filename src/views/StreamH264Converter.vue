@@ -36,6 +36,7 @@ import type { BasePlayer } from "@/player/BasePlayer";
 import Point from "@/utils/Point";
 import { KeyInputHandler } from "@/utils/KeyInputHandler";
 import { KeyCodeControlMessage } from "@/controlMessage/KeyCodeControlMessage";
+import { getWsUrl } from "../config/env";
 
 type StartParams = {
   udid: string;
@@ -406,7 +407,7 @@ onMounted(() => {
   // 5. Khởi tạo stream receiver
   streamReceiver = new StreamReceiverScrcpy({
     udid: props.udid,
-    ws: props.ws,
+    ws: getWsUrl(props.udid),
     player: props.playerName,
     action: ACTION.STREAM_SCRCPY,
     videoSettings: currentSettings,

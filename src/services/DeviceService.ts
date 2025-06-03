@@ -1,4 +1,5 @@
 // src/services/DeviceService.ts
+import { getMultiplexWsUrl } from "../config/env";
 
 // Interface định nghĩa trạng thái của thiết bị
 interface DeviceState {
@@ -18,8 +19,8 @@ export class DeviceService {
     this.isConnecting = true;
 
     try {
-      // Khởi tạo kết nối WebSocket đến server multiplexer trên cổng 8000
-      this.ws = new WebSocket("ws://localhost:8000/?action=multiplex");
+      // Khởi tạo kết nối WebSocket đến server multiplexer
+      this.ws = new WebSocket(getMultiplexWsUrl());
 
       // Xử lý sự kiện khi kết nối thành công
       this.ws.onopen = () => {

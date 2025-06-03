@@ -156,6 +156,7 @@ import { useRouter } from 'vue-router';
 import { ACTION } from '../../services/stream/StreamConnection';
 import type { ScrcpyStreamParams } from '../../services/stream/StreamConnection';
 import { PlayerType } from '../../services/stream/StreamConnection';
+import { getWsUrl } from '../../config/env';
 
 const router = useRouter();
 
@@ -216,7 +217,7 @@ const startStream = async (playerType: PlayerType) => {
   }
 
   const udid = devices.value[0].udid;
-  const wsUrl = `ws://localhost:8000/?action=proxy-adb&remote=tcp%3A8886&udid=${udid}`;
+  const wsUrl = getWsUrl(udid);
   
   const params: ScrcpyStreamParams = {
     action: ACTION.STREAM_SCRCPY,

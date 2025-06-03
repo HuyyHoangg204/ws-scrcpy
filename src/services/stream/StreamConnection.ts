@@ -1,4 +1,5 @@
 import { TypedEmitter } from '../../common/TypedEmitter';
+import { getBaseWsUrl } from '../../config/env';
 
 /**
  * Enum định nghĩa các loại action có thể có
@@ -77,7 +78,7 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
 
     constructor(
         params: StreamConnectionParams,
-        baseUrl: string = 'ws://localhost:8000'
+        baseUrl: string = getBaseWsUrl()
     ) {
         super();
         // Đảm bảo player type luôn là MSE cho Scrcpy

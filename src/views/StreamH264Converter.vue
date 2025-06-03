@@ -26,12 +26,16 @@ import { DisplayInfo } from "../utils/DisplayInfo";
 import DeviceMessage from "../packages/DeviceMessage";
 import { ControlMessage } from "../controlMessage/ControlMessage";
 import { FeaturedInteractionHandler } from "@/interactionHandler/FeaturedInteractionHandler";
+import type { KeyEventListener } from "@/utils/KeyInputHandler";
 import { ACTION } from "@/common/Action";
 import type {
   ClientsStats,
   DisplayCombinedInfo,
 } from "@/services/stream/StreamReceiver";
 import type { BasePlayer } from "@/player/BasePlayer";
+import Point from "@/utils/Point";
+import { KeyInputHandler } from "@/utils/KeyInputHandler";
+import { KeyCodeControlMessage } from "@/controlMessage/KeyCodeControlMessage";
 
 type StartParams = {
   udid: string;
@@ -62,6 +66,7 @@ let player: MsePlayer | null = null;
 let streamReceiver: StreamReceiverScrcpy | null = null;
 let requestedVideoSettings: VideoSettings | undefined;
 let fitToScreen: boolean | undefined;
+let keyboardEnabled = ref(false);
 
 //Xác định xem video stream có được co giãn để vừa với kích thước màn hình không
 const getFitToScreen = (udid: string, displayInfo?: DisplayInfo) => {
@@ -252,16 +257,40 @@ onUnmounted(() => {
   document.body.classList.remove("stream"); // Cleanup body class
 });
 
+// Keyboard event handling
+const setHandleKeyboardEvents = (enabled: boolean) => {
+  if (!player) return;
+  
+  keyboardEnabled.value = enabled;
+  const listener: KeyEventListener = {
+    onKeyEvent: (event: KeyCodeControlMessage) => {
+      sendMessage(event);
+    }
+  };
+
+  if (enabled) {
+    KeyInputHandler.addEventListener(listener);
+  } else {
+    KeyInputHandler.removeEventListener(listener);
+  }
+};
+
 const setTouchListeners = (player: BasePlayer) => {
   if (touchHandler) {
-    return;
+    touchHandler.release();
+    touchHandler = null;
   }
-  console.log("[DEBUG] Setting up touch handler");
   touchHandler = new FeaturedInteractionHandler(player, {
     sendMessage: (message: ControlMessage) => {
       streamReceiver?.sendEvent(message);
     },
   });
+
+  // Force draw a test point to verify canvas is working
+  if (touchHandler) {
+    const testPoint = new Point(100, 100);
+    touchHandler.drawPointer(testPoint);
+  }
 };
 
 // Đăng ký listeners sau khi khởi tạo streamReceiver
@@ -290,6 +319,13 @@ const setupEventListeners = () => {
   console.log("Event listeners setup completed");
 };
 
+// appen touchablec canvas vào DOM
+const setParent = (parent: HTMLElement) => {
+  if (!player) return;
+  
+  // Lưu parent element
+  player.setParent(parent);
+}
 // Methods
 const startStream = ({
   udid,
@@ -362,6 +398,11 @@ onMounted(() => {
   player = currentPlayer;
   player.setVideoSettings(currentSettings, fitToScreen, false);
 
+   // Dùng setParent để append cả video và canvas
+   if (videoContainer.value) {
+    setParent(videoContainer.value);
+  }
+
   // 5. Khởi tạo stream receiver
   streamReceiver = new StreamReceiverScrcpy({
     udid: props.udid,
@@ -372,13 +413,14 @@ onMounted(() => {
     fitToScreen: fitToScreen,
   });
 
-  console.log("Stream receiver created:", streamReceiver);
 
   // 6. Đăng ký event listeners
   setupEventListeners();
 
   // 7. Setup touch và start stream
   setTouchListeners(player);
+
+  setHandleKeyboardEvents(true)
   startStream({
     udid: props.udid,
     playerName: props.playerName,
@@ -404,17 +446,30 @@ defineExpose({
 
 
 <style scoped>
+/* Thêm style cho touch layer */
+:deep(.touch-layer) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: auto; /* Canvas nhận events */
+  touch-action: none;
+  background: transparent; /* Đảm bảo canvas trong suốt */
+}
+
 .video {
   position: relative;
   width: 100%;
   height: 100%;
-  touch-action: none; /* Quan trọng cho touch events */
+  touch-action: none;
 }
 
 .video video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  pointer-events: auto; /* Đảm bảo video có thể nhận events */
+  pointer-events: none; /* Video KHÔNG nhận events */
 }
 </style>

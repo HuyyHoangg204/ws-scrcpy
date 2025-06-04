@@ -1,16 +1,13 @@
 <!-- src/App.vue -->
 <template>
   <div class="app">
-    <router-view></router-view>
+    <!-- <router-view></router-view> -->
+     <AndroidDevice/>
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-export default defineComponent({
-  name: 'App'
-});
+<script setup lang="ts">
+import AndroidDevice from './components/android/AndroidDevice.vue';
 </script>
 
 <style>

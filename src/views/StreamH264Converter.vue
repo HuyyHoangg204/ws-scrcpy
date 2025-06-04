@@ -1,12 +1,7 @@
 <template>
   <div class="device-view">
-    <!-- Control buttons từ GoogToolBox -->
-    <!-- <div class="control-buttons" ref="controlButtons">
-      <button class="action-button" @click="stop">Stop</button>
-    </div> -->
-
     <!-- Video container -->
-    <div class="video" ref="videoContainer">
+    <div class="video" ref="videoContainer" @control-event="handleControlEvent">
       <!-- Video element sẽ được tạo và quản lý bởi MsePlayer -->
     </div>
 
@@ -37,6 +32,7 @@ import Point from "@/utils/Point";
 import { KeyInputHandler } from "@/utils/KeyInputHandler";
 import { KeyCodeControlMessage } from "@/controlMessage/KeyCodeControlMessage";
 import { getWsUrl } from "../config/env";
+import KeyEvent from "@/controlMessage/KeyEvent";
 
 type StartParams = {
   udid: string;
@@ -51,7 +47,10 @@ const props = defineProps<{
   udid: string;
   playerName: string;
   ws: string;
+  show: boolean;
 }>();
+
+const emit = defineEmits(['update:show']);
 
 const videoContainer = ref<HTMLDivElement | null>(null);
 const controlButtons = ref<HTMLDivElement | null>(null);
@@ -68,6 +67,26 @@ let streamReceiver: StreamReceiverScrcpy | null = null;
 let requestedVideoSettings: VideoSettings | undefined;
 let fitToScreen: boolean | undefined;
 let keyboardEnabled = ref(false);
+
+
+
+// Thêm handler để xử lý control event
+const handleControlEvent = (message: KeyCodeControlMessage) => {
+  // Kiểm tra nếu streamReceiver đã được khởi tạo
+  if (!streamReceiver) return;
+
+  // Gửi message thông qua streamReceiver
+  streamReceiver.sendEvent(message);
+
+  // Sau khi gửi ACTION_DOWN, cần gửi thêm ACTION_UP
+  const upMessage = new KeyCodeControlMessage(
+    KeyEvent.ACTION_UP,
+    message.keycode,
+    0,
+    0
+  );
+  streamReceiver.sendEvent(upMessage);
+};
 
 //Xác định xem video stream có được co giãn để vừa với kích thước màn hình không
 const getFitToScreen = (udid: string, displayInfo?: DisplayInfo) => {
@@ -362,6 +381,23 @@ const sendMessage = (message: ControlMessage) => {
   streamReceiver?.sendEvent(message);
 };
 
+// Methods to handle controls
+const handleControlMessage = (message: KeyCodeControlMessage) => {
+  if (!streamReceiver) return;
+  
+  // Send DOWN action
+  streamReceiver.sendEvent(message);
+  
+  // Send UP action
+  const upMessage = new KeyCodeControlMessage(
+    KeyEvent.ACTION_UP,
+    message.keycode,
+    0,
+    0
+  );
+  streamReceiver.sendEvent(upMessage);
+};
+
 // Lifecycle
 onMounted(() => {
   // 1. Khởi tạo video element
@@ -439,14 +475,27 @@ onMounted(() => {
 // Expose necessary methods
 defineExpose({
   sendMessage,
+  handleControlMessage,
   getDeviceName: () => deviceName.value,
   getClientId: () => clientId.value,
   getClientsCount: () => clientsCount.value,
 });
+
+const closeModal = () => {
+  stop(); // Stop the stream
+  emit('update:show', false);
+};
 </script>
 
-
 <style scoped>
+.device-view {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  background: black;
+}
+
 /* Thêm style cho touch layer */
 :deep(.touch-layer) {
   position: absolute;

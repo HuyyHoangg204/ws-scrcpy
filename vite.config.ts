@@ -11,7 +11,7 @@ export default defineConfig({
   ],
   define: {
     global: 'window',
-    'process.env': {}, // 👈 thêm dòng này nếu có dùng process.env
+    'process.env': {}, // 👈 add this line if using process.env
   },
   optimizeDeps: {
     esbuildOptions: {

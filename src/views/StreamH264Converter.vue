@@ -2,10 +2,10 @@
   <div class="device-view">
     <!-- Video container -->
     <div class="video" ref="videoContainer" @control-event="handleControlEvent">
-      <!-- Video element sẽ được tạo và quản lý bởi MsePlayer -->
+      <!-- Video element will be created and managed by MsePlayer -->
     </div>
 
-    <!-- More box từ GoogMoreBox -->
+    <!-- More box from GoogMoreBox -->
     <div class="more-box" ref="moreBox"></div>
   </div>
 </template>
@@ -68,17 +68,15 @@ let requestedVideoSettings: VideoSettings | undefined;
 let fitToScreen: boolean | undefined;
 let keyboardEnabled = ref(false);
 
-
-
-// Thêm handler để xử lý control event
+// Add handler to process control event
 const handleControlEvent = (message: KeyCodeControlMessage) => {
-  // Kiểm tra nếu streamReceiver đã được khởi tạo
+  // Check if streamReceiver has been initialized
   if (!streamReceiver) return;
 
-  // Gửi message thông qua streamReceiver
+  // Send message through streamReceiver
   streamReceiver.sendEvent(message);
 
-  // Sau khi gửi ACTION_DOWN, cần gửi thêm ACTION_UP
+  // After sending ACTION_DOWN, need to send ACTION_UP
   const upMessage = new KeyCodeControlMessage(
     KeyEvent.ACTION_UP,
     message.keycode,
@@ -88,7 +86,7 @@ const handleControlEvent = (message: KeyCodeControlMessage) => {
   streamReceiver.sendEvent(upMessage);
 };
 
-//Xác định xem video stream có được co giãn để vừa với kích thước màn hình không
+// Determine if video stream should be scaled to fit screen size
 const getFitToScreen = (udid: string, displayInfo?: DisplayInfo) => {
   return MsePlayer.getFitToScreenStatus(udid, displayInfo);
 };
@@ -260,8 +258,8 @@ const onDisconnected = () => {
 };
 
 const stop = () => {
-  // Cleanup theo thứ tự
-  touchHandler?.release(); // Thêm cleanup touch handler
+  // Cleanup in order
+  touchHandler?.release(); // Cleanup touch handler
   touchHandler = null;
 
   player?.cleanup();
@@ -313,7 +311,7 @@ const setTouchListeners = (player: BasePlayer) => {
   }
 };
 
-// Đăng ký listeners sau khi khởi tạo streamReceiver
+// Register listeners after initializing streamReceiver
 const setupEventListeners = () => {
   if (!streamReceiver) {
     console.error("Cannot setup listeners - streamReceiver not initialized");
@@ -339,13 +337,14 @@ const setupEventListeners = () => {
   console.log("Event listeners setup completed");
 };
 
-// appen touchablec canvas vào DOM
+// Append touchable canvas to DOM
 const setParent = (parent: HTMLElement) => {
   if (!player) return;
   
-  // Lưu parent element
+  // Save parent element
   player.setParent(parent);
 }
+
 // Methods
 const startStream = ({
   udid,
@@ -400,14 +399,14 @@ const handleControlMessage = (message: KeyCodeControlMessage) => {
 
 // Lifecycle
 onMounted(() => {
-  // 1. Khởi tạo video element
+  // 1. Initialize video element
   const videoElement = MsePlayer.createElement();
   videoContainer.value?.appendChild(videoElement);
 
-  // 2. Lấy fitToScreen status trước
+  // 2. Get fitToScreen status first
   fitToScreen = MsePlayer.getFitToScreenStatus(props.udid);
 
-  // 3. Khởi tạo video settings với bounds phù hợp
+  // 3. Initialize video settings with appropriate bounds
   const currentSettings = new VideoSettings({
     lockedVideoOrientation: -1,
     bitrate: 7340032,  // ~7MB/s
@@ -425,7 +424,7 @@ onMounted(() => {
     0
   );
 
-  // 4. Khởi tạo player với settings
+  // 4. Initialize player with settings
   const currentPlayer = new MsePlayer(
     props.udid,
     displayInfo,
@@ -435,12 +434,12 @@ onMounted(() => {
   player = currentPlayer;
   player.setVideoSettings(currentSettings, fitToScreen, false);
 
-   // Dùng setParent để append cả video và canvas
-   if (videoContainer.value) {
+  // Use setParent to append both video and canvas
+  if (videoContainer.value) {
     setParent(videoContainer.value);
   }
 
-  // 5. Khởi tạo stream receiver
+  // 5. Initialize stream receiver
   streamReceiver = new StreamReceiverScrcpy({
     udid: props.udid,
     ws: getWsUrl(props.udid),
@@ -450,11 +449,10 @@ onMounted(() => {
     fitToScreen: fitToScreen,
   });
 
-
-  // 6. Đăng ký event listeners
+  // 6. Register event listeners
   setupEventListeners();
 
-  // 7. Setup touch và start stream
+  // 7. Setup touch and start stream
   setTouchListeners(player);
 
   setHandleKeyboardEvents(true)
@@ -496,7 +494,7 @@ const closeModal = () => {
   background: black;
 }
 
-/* Thêm style cho touch layer */
+/* Add style for touch layer */
 :deep(.touch-layer) {
   position: absolute;
   top: 0;
@@ -504,9 +502,9 @@ const closeModal = () => {
   width: 100%;
   height: 100%;
   z-index: 1;
-  pointer-events: auto; /* Canvas nhận events */
+  pointer-events: auto; /* Canvas receives events */
   touch-action: none;
-  background: transparent; /* Đảm bảo canvas trong suốt */
+  background: transparent; /* Ensure canvas is transparent */
 }
 
 .video {
@@ -520,6 +518,6 @@ const closeModal = () => {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  pointer-events: none; /* Video KHÔNG nhận events */
+  pointer-events: none; /* Video does NOT receive events */
 }
 </style>

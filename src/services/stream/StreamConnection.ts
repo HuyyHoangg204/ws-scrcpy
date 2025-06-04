@@ -2,7 +2,7 @@ import { TypedEmitter } from '../../common/TypedEmitter';
 import { getBaseWsUrl } from '../../config/env';
 
 /**
- * Enum định nghĩa các loại action có thể có
+ * Enum define all types of action
  */
 export enum ACTION {
     LIST_HOSTS = 'list-hosts',
@@ -25,7 +25,7 @@ export enum PlayerType {
 }
 
 /**
- * Interface cơ bản cho các tham số stream
+ * Interface basic for stream params
  */
 export interface BaseStreamParams {
     action: ACTION;
@@ -34,16 +34,16 @@ export interface BaseStreamParams {
 }
 
 /**
- * Tham số cụ thể cho Scrcpy streaming
+ * Specific params for Scrcpy streaming
  */
 export interface ScrcpyStreamParams extends BaseStreamParams {
     action: ACTION.STREAM_SCRCPY;
     ws: string;           // WebSocket URL
-    player: PlayerType;   // Luôn là MSE
+    player: PlayerType;   // Always MSE
 }
 
 /**
- * Tham số cho proxy ADB
+ * Params for proxy ADB
  */
 export interface ProxyAdbParams extends BaseStreamParams {
     action: ACTION.PROXY_ADB;
@@ -52,23 +52,23 @@ export interface ProxyAdbParams extends BaseStreamParams {
 }
 
 /**
- * Union type của tất cả loại params có thể có
+ * Union type of all possible params
  */
 export type StreamConnectionParams = ScrcpyStreamParams | ProxyAdbParams;
 
 /**
- * Định nghĩa các sự kiện stream
+ * Define all stream events
  */
 interface StreamEvents {
-    'stream-data': Uint8Array;     // Phát ra khi nhận được frame data
-    'stream-error': Error;         // Phát ra khi có lỗi
-    'stream-close': void;          // Phát ra khi đóng kết nối
+    'stream-data': Uint8Array;     // Emit when receive frame data
+    'stream-error': Error;         // Emit when error
+    'stream-close': void;          // Emit when close connection
     'client-connected': string;
     'client-disconnected': string;
 }
 
 /**
- * Class quản lý kết nối WebSocket stream
+ * Class manage WebSocket connection
  */
 export class StreamConnection extends TypedEmitter<StreamEvents> {
     private ws: WebSocket | null = null;
@@ -81,7 +81,7 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
         baseUrl: string = getBaseWsUrl()
     ) {
         super();
-        // Đảm bảo player type luôn là MSE cho Scrcpy
+        // Ensure player type is always MSE for Scrcpy
         if (params.action === ACTION.STREAM_SCRCPY) {
             params.player = PlayerType.MSE;
         }
@@ -90,9 +90,9 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
     }
 
     /**
-     * Parse params từ URLSearchParams
-     * @param params URLSearchParams từ URL
-     * @returns StreamConnectionParams đã parse
+     * Parse params from URLSearchParams
+     * @param params URLSearchParams from URL
+     * @returns Parsed StreamConnectionParams
      */
     public static parseFromURL(params: URLSearchParams): StreamConnectionParams {
         const action = params.get('action') as ACTION;
@@ -108,7 +108,7 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
                 if (!ws) {
                     throw new Error('Missing required scrcpy parameters');
                 }
-                // Luôn sử dụng MSE player
+                // Always use MSE player
                 return { 
                     action, 
                     udid, 
@@ -127,15 +127,15 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
     }
 
     /**
-     * Tạo URL WebSocket dựa trên loại params
+     * Create WebSocket URL based on params type
      */
     private buildWebSocketUrl(): string {
         let wsUrl: string;
         if (this.params.action === ACTION.STREAM_SCRCPY) {
-            // Đối với scrcpy, sử dụng URL WebSocket trực tiếp
+            // For scrcpy, use direct WebSocket URL
             wsUrl = this.params.ws;
         } else {
-            // Đối với các loại khác, tạo URL từ params
+            // For other types, create URL from params
             const url = new URL(this.baseUrl);
             Object.entries(this.params).forEach(([key, value]) => {
                 if (value !== undefined) {
@@ -219,7 +219,7 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
                 ...currentParams,
                 ...newParams,
                 action: ACTION.STREAM_SCRCPY,
-                player: PlayerType.MSE // Đảm bảo luôn sử dụng MSE
+                player: PlayerType.MSE // Ensure always use MSE
             } as ScrcpyStreamParams;
         } else if (currentParams.action === ACTION.PROXY_ADB) {
             this.params = {
@@ -235,7 +235,7 @@ export class StreamConnection extends TypedEmitter<StreamEvents> {
     }
 
     /**
-     * Lấy params hiện tại
+     * Get current params
      */
     public getParams(): StreamConnectionParams {
         return { ...this.params };

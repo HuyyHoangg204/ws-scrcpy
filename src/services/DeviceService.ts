@@ -1,158 +1,148 @@
 // src/services/DeviceService.ts
-import { getMultiplexWsUrl } from "../config/env";
+import { getWsUrl } from "../config/env";
 
-// Interface định nghĩa trạng thái của thiết bị
+// Interface defining device state
 interface DeviceState {
-  devices: any[]; // Danh sách các thiết bị
-  state: 'device' | 'disconnected'; // Trạng thái kết nối: đã kết nối hoặc đã ngắt kết nối
+  devices: any[]; // Device list
+  state: 'device' | 'disconnected'; // Connection state: connected or disconnected
 }
 
 export class DeviceService {
-  private ws: WebSocket | null = null; // Kết nối WebSocket
-  private deviceListeners: ((state: DeviceState) => void)[] = []; // Danh sách các callback functions
-  private reconnectTimeout: number | null = null; // Timer cho việc kết nối lại
-  private isConnecting: boolean = false; // Cờ đánh dấu trạng thái đang kết nối
+  private ws: WebSocket | null = null; // WebSocket connection
+  private deviceListeners: ((state: DeviceState) => void)[] = []; // List of callback functions
+  private reconnectTimeout: number | null = null; // Timer for reconnect
+  private isConnecting: boolean = false; // Connection state flag
 
-  // Phương thức thiết lập kết nối WebSocket
-  connect() {
-    if (this.isConnecting) return; // Tránh kết nối nhiều lần
+  // Method for setting up WebSocket connection
+  public connect(): void {
+    if (this.isConnecting) return; // Avoid multiple connections
     this.isConnecting = true;
 
-    try {
-      // Khởi tạo kết nối WebSocket đến server multiplexer
-      this.ws = new WebSocket(getMultiplexWsUrl());
+    // Initialize WebSocket connection to multiplexer server
+    this.ws = new WebSocket(getWsUrl());
 
-      // Xử lý sự kiện khi kết nối thành công
-      this.ws.onopen = () => {
-        console.log('DeviceService: WebSocket connection opened');
-        this.isConnecting = false;
-
-        // Tạo message theo protocol để tạo kênh giao tiếp:
-        // - Byte 0: Message Type (4 = CreateChannel)
-        // - Byte 1-4: Channel ID (0)
-        // - Byte 5+: Channel Code ("GTRC")
-        const messageType = 4; // MessageType.CreateChannel
-        const channelId = 0; // Channel ID mặc định
-        const channelCode = new TextEncoder().encode("GTRC");
-
-        // Tạo buffer với đúng format protocol
-        const buffer = new ArrayBuffer(5 + channelCode.length);
-        const view = new DataView(buffer);
-
-        // Ghi messageType vào byte đầu tiên
-        view.setUint8(0, messageType);
-
-        // Ghi channelId vào 4 bytes tiếp theo
-        view.setUint32(1, channelId, true); // true cho little-endian
-
-        // Ghi channel code vào các bytes còn lại
-        new Uint8Array(buffer, 5).set(channelCode);
-
-        // Gửi buffer đến server
-        if (this.ws) {
-          this.ws.send(buffer);
-        }
-      };
-
-      // Xử lý các message nhận được từ server
-      this.ws.onmessage = async (event) => {
-        try {
-          // Chuyển đổi dữ liệu Blob thành ArrayBuffer
-          const arrayBuffer = await event.data.arrayBuffer();
-
-          // Đọc header của message (5 bytes đầu)
-          const view = new DataView(arrayBuffer);
-
-          // Đọc và giải mã phần data JSON
-          const data = arrayBuffer.slice(5); // Bỏ qua 5 bytes header
-          const decoder = new TextDecoder();
-          const jsonString = decoder.decode(data);
-
-          // Parse JSON và xử lý dữ liệu
-          const deviceData = JSON.parse(jsonString);
-          
-          // Xử lý 2 loại message: devicelist và device
-          if (deviceData.type === 'devicelist') {
-            // Xử lý danh sách thiết bị
-            const deviceList = deviceData.data?.list || [];
-            const device = deviceList[0];
-            const state = device?.state || 'disconnected';
-            
-            // Thông báo cho tất cả listeners về danh sách thiết bị mới
-            this.deviceListeners.forEach((listener) => {
-              listener({
-                devices: deviceList,
-                state: state
-              });
-            });
-          } else if (deviceData.type === 'device') {
-            // Xử lý thông tin của một thiết bị cụ thể
-            const device = deviceData.data?.device;
-            const state = device?.state || 'disconnected';
-            
-            // Thông báo cho tất cả listeners về thông tin thiết bị mới
-            this.deviceListeners.forEach((listener) => {
-              listener({
-                devices: device ? [device] : [],
-                state: state
-              });
-            });
-          }
-        } catch (e) {
-          console.error("Error processing message:", e);
-        }
-      };
-
-      // Xử lý sự kiện đóng kết nối
-      this.ws.onclose = () => {
-        console.log("Disconnected from server, attempting to reconnect...");
-        this.isConnecting = false;
-        this.scheduleReconnect(); // Lên lịch kết nối lại
-      };
-
-      // Xử lý sự kiện lỗi
-      this.ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        this.isConnecting = false;
-        this.scheduleReconnect(); // Lên lịch kết nối lại
-      };
-    } catch (error) {
-      console.error("Failed to connect:", error);
+    // Handle event when connection is successful
+    this.ws.onopen = () => {
       this.isConnecting = false;
-      this.scheduleReconnect();
-    }
-  }
 
-  // Lên lịch kết nối lại sau 3 giây
-  private scheduleReconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-    this.reconnectTimeout = window.setTimeout(() => {
-      this.connect();
-    }, 3000);
-  }
+      // Create message according to protocol to create communication channel:
+      // - Byte 0: Message Type (4 = CreateChannel)
+      // - Byte 1-4: Channel ID (0)
+      // - Byte 5+: Channel Code ("GTRC")
+      const messageType = 4; // MessageType.CreateChannel
+      const channelId = 0; // Default channel ID
+      const channelCode = "GTRC";
 
-  // Đăng ký callback để nhận thông tin thiết bị
-  onDeviceList(callback: (state: DeviceState) => void) {
-    this.deviceListeners.push(callback);
-    // Trả về hàm cleanup để hủy đăng ký callback
-    return () => {
-      this.deviceListeners = this.deviceListeners.filter(
-        (cb) => cb !== callback
-      );
+      // Create buffer with correct protocol format
+      const buffer = new ArrayBuffer(5 + channelCode.length);
+      const view = new DataView(buffer);
+
+      // Write messageType to first byte
+      view.setUint8(0, messageType);
+
+      // Write channelId to next 4 bytes
+      view.setUint32(1, channelId, true); // true for little-endian
+
+      // Write channel code to remaining bytes
+      const encoder = new TextEncoder();
+      const channelCodeBytes = encoder.encode(channelCode);
+      new Uint8Array(buffer).set(channelCodeBytes, 5);
+
+      // Send buffer to server
+      if (this.ws) {
+        this.ws.send(buffer);
+      }
+    };
+
+    // Handle messages received from server
+    this.ws.onmessage = async (event: MessageEvent) => {
+      // Convert Blob data to ArrayBuffer
+      const arrayBuffer = await event.data.arrayBuffer();
+
+      // Read header of message (first 5 bytes)
+      const header = arrayBuffer.slice(0, 5);
+
+      // Read and decode JSON data
+      const data = arrayBuffer.slice(5); // Skip first 5 bytes header
+      const decoder = new TextDecoder();
+      const jsonStr = decoder.decode(data);
+
+      // Parse JSON and process data
+      const message = JSON.parse(jsonStr);
+
+      // Process 2 types of messages: devicelist and device
+      if (message.type === "devicelist") {
+        // Process device list
+        const deviceState: DeviceState = {
+          devices: message.data,
+          state: message.data[0]?.state || "disconnected",
+        };
+
+        // Notify all listeners about new device list
+        this.deviceListeners.forEach((listener) => {
+          listener(deviceState);
+        });
+      } else if (message.type === "device") {
+        // Process specific device information
+        const deviceState: DeviceState = {
+          devices: [message.data],
+          state: message.data.state,
+        };
+
+        // Notify all listeners about new device information
+        this.deviceListeners.forEach((listener) => {
+          listener(deviceState);
+        });
+      }
+    };
+
+    // Handle connection close event
+    this.ws.onclose = () => {
+      this.isConnecting = false;
+      this.ws = null;
+      this.scheduleReconnect(); // Schedule reconnect
+    };
+
+    // Handle error event
+    this.ws.onerror = () => {
+      this.isConnecting = false;
+      this.ws = null;
+      this.scheduleReconnect(); // Schedule reconnect
     };
   }
 
-  // Ngắt kết nối WebSocket và dọn dẹp
-  disconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
+  private scheduleReconnect(): void {
+    // Schedule reconnect after 3 seconds
+    if (this.reconnectTimeout === null) {
+      this.reconnectTimeout = window.setTimeout(() => {
+        this.reconnectTimeout = null;
+        this.connect();
+      }, 3000);
     }
+  }
+
+  // Register callback to receive device information
+  public onDeviceList(callback: (state: DeviceState) => void): () => void {
+    this.deviceListeners.push(callback);
+
+    // Return cleanup function to unregister callback
+    return () => {
+      const index = this.deviceListeners.indexOf(callback);
+      if (index !== -1) {
+        this.deviceListeners.splice(index, 1);
+      }
+    };
+  }
+
+  // Disconnect WebSocket and clean up
+  public disconnect(): void {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+    if (this.reconnectTimeout !== null) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
     this.deviceListeners = [];
   }

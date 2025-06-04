@@ -13,11 +13,11 @@
         <img src="../../assets/logo.png" alt="logo" class="w-20 h-20" />
         <h1 class="text-4xl font-bold text-green-500">One Green</h1>
       </div>
-      <!-- Hiển thị thông tin thiết bị và trạng thái kết nối -->
+      <!-- Display device information and connection status -->
       <div
         class="flex items-center gap-3 border p-2 w-full rounded-lg border-[#e0e0e0] bg-[#f5f5f5] shadow-xl"
       >
-        <!-- Đèn báo trạng thái kết nối: xanh = đã kết nối, đỏ = đã ngắt kết nối -->
+        <!-- Connection status indicator: green = connected, red = disconnected -->
         <div
           :class="[
             'w-4 h-4 rounded-full',
@@ -26,12 +26,12 @@
           :title="connectionState"
         ></div>
         <div class="flex flex-col">
-          <!-- Tên nhà sản xuất và model thiết bị -->
+          <!-- Manufacturer name and device model -->
           <span class="text-xl font-semibold">
             {{ devices[0]?.["ro.product.manufacturer"] || "No Device" }}
             {{ devices[0]?.["ro.product.model"] || "" }}
           </span>
-          <!-- Thông tin chi tiết thiết bị khi đã kết nối -->
+          <!-- Detailed device information when connected -->
           <span class="text-sm text-gray-500">
             <template v-if="connectionState === 'device'">
               {{ devices[0]?.udid }} |
@@ -48,7 +48,7 @@
     <div
       class="flex flex-col items-start justify-center w-2/3 bg-white rounded-lg p-6 space-y-10"
     >
-      <!-- Danh sách công cụ -->
+      <!-- Tools list -->
       <div class="w-full flex items-center gap-2 justify-around">
         <!-- Shell terminal -->
         <div
@@ -81,7 +81,7 @@
       </div>
 
 
-      <!-- Phương thức stream -->
+      <!-- Stream method -->
       <div class="w-full flex items-center justify-around">
         <!-- Broadway -->
         <div
@@ -158,7 +158,7 @@
       <div
         class="bg-black rounded-4xl overflow-hidden mr-3 border-6 shadow-2xl"
       >
-        <!-- Nội dung stream -->
+        <!-- Stream content -->
         <StreamH264Converter
           ref="streamRef"
           :show="visible"
@@ -175,7 +175,7 @@
           <div
             class="p-2 border-b flex items-center justify-between bg-[#bee7c8] rounded-t-xl"
           >
-            <!-- Nội dung header -->
+            <!-- Content header -->
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-green-500"></span>
               <span class="text-md font-semibold text-[#38b756]">{{
@@ -185,7 +185,7 @@
             <CgClose class="w-4 h-4 cursor-pointer" @click="visible = false" />
           </div>
 
-          <!-- Phần menu -->
+          <!-- Menu section -->
           <div class="p-1">
             <Functions/>
           </div>
@@ -223,67 +223,66 @@ import { AkDragHorizontalFill } from '@kalimahapps/vue-icons';
 import Functions from "../controlStream/Functions.vue";
 
 
-// Interface định nghĩa cấu trúc thông tin mạng của thiết bị
+// Interface defining device network information structure
 interface NetworkInterface {
   name: string;
   ipv4: string;
 }
 
-// Interface định nghĩa cấu trúc thông tin thiết bị
+// Interface defining device information structure
 interface Device {
-  udid: string; // ID duy nhất của thiết bị
-  pid?: number; // Process ID (tùy chọn)
-  state: string; // Trạng thái thiết bị
-  interfaces?: NetworkInterface[]; // Thông tin mạng (tùy chọn)
-  "ro.product.manufacturer": string; // Nhà sản xuất
-  "ro.product.model": string; // Model thiết bị
-  "ro.build.version.release": string; // Phiên bản Android
+  udid: string; // Unique device ID
+  pid?: number; // Process ID (optional)
+  state: string; // Device state
+  interfaces?: NetworkInterface[]; // Network information (optional)
+  "ro.product.manufacturer": string; // Manufacturer
+  "ro.product.model": string; // Device model
+  "ro.build.version.release": string; // Android version
   "ro.build.version.sdk": string; // SDK version
 }
 
-// Interface định nghĩa trạng thái thiết bị
+// Interface defining device status
 interface DeviceState {
-  devices: Device[]; // Danh sách thiết bị
-  state: "device" | "disconnected"; // Trạng thái kết nối
+  devices: Device[]; // Device list
+  state: "device" | "disconnected"; // State connection
 }
 
-// Khởi tạo các reactive references
-const devices = ref<Device[]>([]); // Danh sách thiết bị
-const connectionState = ref<string>("disconnected"); // Trạng thái kết nối
-const visible = ref(false); // Trạng thái visible
+// Initialize reactive references
+const devices = ref<Device[]>([]); // Device list
+const connectionState = ref<string>("disconnected"); // Connection state
+const visible = ref(false); // Visibility state
 
-const isLoading = ref(false); // Trạng thái loading
-const deviceService = new DeviceService(); // Khởi tạo service quản lý thiết bị
-let cleanup: (() => void) | null = null; // Hàm cleanup
+const isLoading = ref(false); // Loading state
+const deviceService = new DeviceService(); // Initialize device service
+let cleanup: (() => void) | null = null; // cleanup method
 
 const streamRef = ref<InstanceType<typeof StreamH264Converter> | null>(null);
 
-// Khởi tạo kết nối và đăng ký lắng nghe sự kiện khi component được mount
+// Initialize connection and register event when component is mounted
 onMounted(() => {
-  deviceService.connect(); // Kết nối WebSocket
+  deviceService.connect(); // Connect WebSocket
   cleanup = deviceService.onDeviceList((data: DeviceState) => {
-    devices.value = data.devices; // Cập nhật danh sách thiết bị
-    connectionState.value = data.state; // Cập nhật trạng thái kết nối
+    devices.value = data.devices; // Update device list
+    connectionState.value = data.state; // Update connection state
   });
 });
 
-// Dọn dẹp khi component bị unmount
+// Cleanup when component is unmounted
 onUnmounted(() => {
   if (cleanup) {
-    cleanup(); // Hủy đăng ký lắng nghe sự kiện
+    cleanup(); // Cleanup event listeners
   }
-  deviceService.disconnect(); // Ngắt kết nối WebSocket
+  deviceService.disconnect(); // Disconnect WebSocket
 });
 
 
 
-// Hàm xử lý cho từng nút
-// Emit events để StreamH264Converter xử lý
+// Method emit events to StreamH264Converter
 const emit = defineEmits<{
   (e: 'control-event', message: KeyCodeControlMessage): void
 }>();
 
-// Control handlers cho 3 nút Android navigation
+// Control handlers for 3 buttons Android navigation
 const handleOverview = () => {
   const message = new KeyCodeControlMessage(
     KeyEvent.ACTION_DOWN,

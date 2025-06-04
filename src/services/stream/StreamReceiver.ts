@@ -65,7 +65,7 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
   private handleInitialInfo(data: ArrayBuffer): void {
     let offset = MAGIC_BYTES_INITIAL.length;
 
-    // Lưu lại nameBytes để xử lý sau
+    // Save nameBytes for later processing
     let nameBytes = new Uint8Array(data, offset, DEVICE_NAME_FIELD_LENGTH);
     offset += DEVICE_NAME_FIELD_LENGTH;
 
@@ -194,7 +194,7 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
           MAGIC_BYTES_INITIAL.length
         );
 
-        // Log magic bytes để debug
+        // Log magic bytes for debugging
 
         if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL)) {
           this.handleInitialInfo(event.data);

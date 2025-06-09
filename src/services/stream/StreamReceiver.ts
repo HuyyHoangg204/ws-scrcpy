@@ -38,7 +38,6 @@ interface StreamReceiverEvents {
   disconnected: CloseEvent;
 }
 
-const TAG = "[StreamReceiver]";
 
 export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
   ParamsStream,
@@ -217,25 +216,25 @@ export class StreamReceiver<P extends ParamsStream> extends ManagerClient<
     }
   }
 
-  private getMessageType(data: Uint8Array): string {
-    if (data.length < MAGIC_BYTES_INITIAL.length) return "unknown";
+  // private getMessageType(data: Uint8Array): string {
+  //   if (data.length < MAGIC_BYTES_INITIAL.length) return "unknown";
 
-    const magicBytes = data.slice(0, MAGIC_BYTES_INITIAL.length);
-    if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL))
-      return "initial";
-    if (
-      StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)
-    )
-      return "device";
-    return "video";
-  }
+  //   const magicBytes = data.slice(0, MAGIC_BYTES_INITIAL.length);
+  //   if (StreamReceiver.EqualArrays(magicBytes, MAGIC_BYTES_INITIAL))
+  //     return "initial";
+  //   if (
+  //     StreamReceiver.EqualArrays(magicBytes, DeviceMessage.MAGIC_BYTES_MESSAGE)
+  //   )
+  //     return "device";
+  //   return "video";
+  // }
 
-  private isKeyFrame(data: Uint8Array): boolean {
-    // Basic h264 NAL unit type check - this is a simplified check
-    if (data.length < 5) return false;
-    const nalType = data[4] & 0x1f;
-    return nalType === 5; // 5 = IDR frame
-  }
+  // private isKeyFrame(data: Uint8Array): boolean {
+  //   // Basic h264 NAL unit type check - this is a simplified check
+  //   if (data.length < 5) return false;
+  //   const nalType = data[4] & 0x1f;
+  //   return nalType === 5; // 5 = IDR frame
+  // }
 
   protected onSocketOpen(): void {
     this.emit("connected", void 0);

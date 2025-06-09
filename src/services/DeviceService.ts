@@ -61,7 +61,7 @@ export class DeviceService {
           const arrayBuffer = await event.data.arrayBuffer();
 
           // Read header of message (first 5 bytes)
-          const view = new DataView(arrayBuffer);
+          // const view = new DataView(arrayBuffer);
 
           // Read and decode JSON data
           const data = arrayBuffer.slice(5); // Skip first 5 bytes header

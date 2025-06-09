@@ -1,10 +1,27 @@
-export const config = {
-  ws: {
-    host: import.meta.env.VITE_WS_HOST || 'localhost',
-    port: parseInt(import.meta.env.VITE_WS_PORT || '8000'),
-    remotePort: parseInt(import.meta.env.VITE_WS_REMOTE_PORT || '8886'),
-    secure: import.meta.env.VITE_WS_SECURE === 'true' || false
-  }
+export interface WsConfig {
+  host: string;
+  port: number;
+  remotePort: number;
+  secure: boolean;
+}
+
+const defaultConfig: WsConfig = {
+  host: import.meta.env.VITE_WS_HOST || 'localhost',
+  port: parseInt(import.meta.env.VITE_WS_PORT || '8000'),
+  remotePort: parseInt(import.meta.env.VITE_WS_REMOTE_PORT || '8886'),
+  secure: import.meta.env.VITE_WS_SECURE === 'true' || false
+};
+
+export let config = {
+  ws: { ...defaultConfig }
+};
+
+export const setConfig = (newConfig: Partial<WsConfig>) => {
+  config.ws = {
+    ...config.ws,
+    ...newConfig
+  };
+  console.log('Config updated:', config.ws);
 };
 
 // Get protocol (ws:// or wss://)

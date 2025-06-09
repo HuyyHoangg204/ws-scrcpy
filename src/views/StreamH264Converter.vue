@@ -20,19 +20,19 @@ import Size from "../utils/Size";
 import { DisplayInfo } from "../utils/DisplayInfo";
 import DeviceMessage from "../packages/DeviceMessage";
 import { ControlMessage } from "../controlMessage/ControlMessage";
-import { FeaturedInteractionHandler } from "@/interactionHandler/FeaturedInteractionHandler";
-import type { KeyEventListener } from "@/utils/KeyInputHandler";
-import { ACTION } from "@/common/Action";
+import { FeaturedInteractionHandler } from "../interactionHandler/FeaturedInteractionHandler";
+import type { KeyEventListener } from "../utils/KeyInputHandler";
+import { ACTION } from "../common/Action";
 import type {
   ClientsStats,
   DisplayCombinedInfo,
-} from "@/services/stream/StreamReceiver";
-import type { BasePlayer } from "@/player/BasePlayer";
-import Point from "@/utils/Point";
-import { KeyInputHandler } from "@/utils/KeyInputHandler";
-import { KeyCodeControlMessage } from "@/controlMessage/KeyCodeControlMessage";
+} from "../services/stream/StreamReceiver";
+import type { BasePlayer } from "../player/BasePlayer";
+import Point from "../utils/Point";
+import { KeyInputHandler } from "../utils/KeyInputHandler";
+import { KeyCodeControlMessage } from "../controlMessage/KeyCodeControlMessage";
 import { getWsUrl } from "../config/env";
-import KeyEvent from "@/controlMessage/KeyEvent";
+import KeyEvent from "../controlMessage/KeyEvent";
 
 type StartParams = {
   udid: string;
@@ -86,10 +86,7 @@ const handleControlEvent = (message: KeyCodeControlMessage) => {
   streamReceiver.sendEvent(upMessage);
 };
 
-// Determine if video stream should be scaled to fit screen size
-const getFitToScreen = (udid: string, displayInfo?: DisplayInfo) => {
-  return MsePlayer.getFitToScreenStatus(udid, displayInfo);
-};
+
 
 // Event handlers
 const onVideo = (data: ArrayBuffer) => {
@@ -318,7 +315,7 @@ const setupEventListeners = () => {
     return;
   }
 
-  console.log("Setting up event listeners...");
+
 
   // Remove existing listeners first to prevent duplicates
   streamReceiver.off("deviceMessage", onDeviceMessage);
@@ -334,7 +331,6 @@ const setupEventListeners = () => {
   streamReceiver.on("displayInfo", onDisplayInfo);
   streamReceiver.on("disconnected", onDisconnected);
 
-  console.log("Event listeners setup completed");
 };
 
 // Append touchable canvas to DOM
@@ -348,7 +344,6 @@ const setParent = (parent: HTMLElement) => {
 // Methods
 const startStream = ({
   udid,
-  playerName,
   player,
   videoSettings,
   fitToScreens,
@@ -479,10 +474,7 @@ defineExpose({
   getClientsCount: () => clientsCount.value,
 });
 
-const closeModal = () => {
-  stop(); // Stop the stream
-  emit('update:show', false);
-};
+
 </script>
 
 <style scoped>
@@ -491,7 +483,9 @@ const closeModal = () => {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  background: black;
+  display: flex;              
+  justify-content: center;    
+  align-items: center; 
 }
 
 /* Add style for touch layer */
@@ -501,10 +495,12 @@ const closeModal = () => {
   left: 0;
   width: 100%;
   height: 100%;
+  width: 100%!important;      
+  height: 100%!important;
   z-index: 1;
-  pointer-events: auto; /* Canvas receives events */
+  pointer-events: auto; 
   touch-action: none;
-  background: transparent; /* Ensure canvas is transparent */
+  background: transparent; 
 }
 
 .video {
@@ -512,12 +508,15 @@ const closeModal = () => {
   width: 100%;
   height: 100%;
   touch-action: none;
+  display: flex;              
+  justify-content: center;   
+  align-items: center; 
 }
 
 .video video {
-  width: 100%;
-  height: 100%;
+  width: 100%!important;      
+  height: 100%!important; 
   object-fit: contain;
-  pointer-events: none; /* Video does NOT receive events */
+  pointer-events: none; 
 }
 </style>

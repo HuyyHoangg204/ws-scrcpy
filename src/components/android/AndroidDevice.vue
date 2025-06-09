@@ -28,15 +28,15 @@
         <div class="flex flex-col">
           <!-- Manufacturer name and device model -->
           <span class="text-xl font-semibold">
-            {{ devices[0]?.["ro.product.manufacturer"] || "No Device" }}
-            {{ devices[0]?.["ro.product.model"] || "" }}
+            {{ devices[1]?.["ro.product.manufacturer"] || "No Device" }}
+            {{ devices[1]?.["ro.product.model"] || "" }}
           </span>
           <!-- Detailed device information when connected -->
           <span class="text-sm text-gray-500">
             <template v-if="connectionState === 'device'">
-              {{ devices[0]?.udid }} |
-              {{ devices[0]?.["ro.build.version.release"] }} |
-              {{ devices[0]?.["ro.build.version.sdk"] }}
+              {{ devices[1]?.udid }} |
+              {{ devices[1]?.["ro.build.version.release"] }} |
+              {{ devices[1]?.["ro.build.version.sdk"] }}
             </template>
             <template v-else> No device connected </template>
           </span>
@@ -85,6 +85,7 @@
       <div class="w-full flex items-center justify-around">
         <!-- Broadway -->
         <div
+          @click="startBroadwayClick"
           :class="[
             'flex items-center gap-2 border py-3 rounded-lg border-[#e0e0e0] text-white w-1/5 justify-center cursor-pointer transition duration-300 transform hover:-translate-y-1 hover:scale-105 hover:shadow-[0_12px_30px_rgba(22,160,133,0.4),inset_0_2px_4px_rgba(255,255,255,0.3)] hover:bg-gradient-to-br hover:from-[#48C9B0] hover:to-[#16A085]',
             connectionState === 'device'
@@ -131,97 +132,36 @@
   </div>
 
   <!-- Dialog stream -->
-
-  <Dialog
+  <AndroidDeviceDialog
     v-model:visible="visible"
-    modal
-    :style="{
-      width: 'auto',
-      padding: '0',
-      backgroundColor: 'transparent',
-      border: 'none',
-    }"
-    class="stream-dialog"
-    position="center"
-    :closable="false"
-    :contentStyle="{ padding: '0' }"
-    header=""
-    :draggable="true"
-  >
-    <template #header>
-      <div class="flex items-center justify-end gap-2 text-white mr-10" style=" width: 100%; height: 20px; padding: 0">
-        <AkDragHorizontalFill class="text-4xl cursor-move"/>
-      </div>
-    </template>
-    <div class="flex">
-      <!-- Phone screen with StreamH264Converter -->
-      <div
-        class="bg-black rounded-4xl overflow-hidden mr-3 border-6 shadow-2xl"
-      >
-        <!-- Stream content -->
-        <StreamH264Converter
-          ref="streamRef"
-          :show="visible"
-          :udid="devices[0]?.udid"
-          :playerName="devices[0]?.['ro.product.model']"
-          :ws="getWsUrl(devices[0]?.udid)"
-        />
-      </div>
+    :device="devices[1]"
+    :wsUrl="getWsUrl(devices[1]?.udid)"
+    @close="closeDialog"
+  />
 
-      <!-- Control menu -->
-      <div class="w-[180px] bg-white rounded-r-lg border-l border-gray-200 flex flex-col justify-between rounded-xl">
-        <div >
-          <!-- Header  -->
-          <div
-            class="p-2 border-b flex items-center justify-between bg-[#bee7c8] rounded-t-xl"
-          >
-            <!-- Content header -->
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-green-500"></span>
-              <span class="text-md font-semibold text-[#38b756]">{{
-                devices[0]?.["ro.product.model"] || "Device"
-              }}</span>
-            </div>
-            <CgClose class="w-4 h-4 cursor-pointer" @click="visible = false" />
-          </div>
-
-          <!-- Menu section -->
-          <div class="p-1">
-            <Functions/>
-          </div>
-        </div>
-        <!-- Control device -->
-         <div class="flex justify-between px-4 py-2 bg-gray-200 items-center gap-2 rounded-b-xl">
-          <ThControlStop @click="handleOverview" class="w-6 h-6 cursor-pointer hover:bg-gray-300 rounded-full "/> <!--Overview -->
-          <ThControlRecord @click="handleHome" class="w-6 h-6 cursor-pointer hover:bg-gray-300 rounded-full"/> <!--Home -->
-          <ThControlPlay @click="handleBack" class="w-6 h-6 cursor-pointer hover:bg-gray-300 rounded-full"/> <!--Back -->
-         </div>
-      </div>
-    </div>
-  </Dialog>
+  <!-- Test Stream Component -->
+  <TestStream
+    v-if="showStream"
+    :udid="devices[1]?.udid"
+    :playerName="devices[1]?.['ro.product.model']"
+    :wsUrl="getWsUrl(devices[1]?.udid)"
+    :width="112"
+    :height="249"
+    @close="closeStream"
+  />
 </template>
 
 <script setup lang="ts">
 import { BsTerminalFill } from "@kalimahapps/vue-icons";
-import Dialog from "primevue/dialog";
-import StreamH264Converter from "../../views/StreamH264Converter.vue";
 import { onMounted, onUnmounted, ref } from "vue";
-import { KeyCodeControlMessage } from "@/controlMessage/KeyCodeControlMessage";
 import { BsTools } from "@kalimahapps/vue-icons";
 import { DeviceService } from "../../services/DeviceService";
 import { AnFilledFolderOpen } from "@kalimahapps/vue-icons";
 import { VsFileTypeLightConfig } from "@kalimahapps/vue-icons";
 import { AnFilledStar } from "@kalimahapps/vue-icons";
 import { getWsUrl } from "../../config/env";
-import { CgClose } from "@kalimahapps/vue-icons";
-import { ThControlStop } from '@kalimahapps/vue-icons';
-import { ThControlRecord } from '@kalimahapps/vue-icons';
-import { ThControlPlay } from '@kalimahapps/vue-icons';
-import KeyEvent from "@/controlMessage/KeyEvent";
-import { defineEmits } from 'vue';
-import { AkDragHorizontalFill } from '@kalimahapps/vue-icons';
-import Functions from "../controlStream/Functions.vue";
-
+import AndroidDeviceDialog from "../AndroidDeviceDialog.vue";
+import TestStream from "../TestStream.vue";
 
 // Interface defining device network information structure
 interface NetworkInterface {
@@ -250,19 +190,18 @@ interface DeviceState {
 // Initialize reactive references
 const devices = ref<Device[]>([]); // Device list
 const connectionState = ref<string>("disconnected"); // Connection state
-const visible = ref(false); // Visibility state
+const visible = ref(false); // Visibility state for dialog
+const showStream = ref(false); // Visibility state for stream
 
-const isLoading = ref(false); // Loading state
 const deviceService = new DeviceService(); // Initialize device service
 let cleanup: (() => void) | null = null; // cleanup method
-
-const streamRef = ref<InstanceType<typeof StreamH264Converter> | null>(null);
 
 // Initialize connection and register event when component is mounted
 onMounted(() => {
   deviceService.connect(); // Connect WebSocket
   cleanup = deviceService.onDeviceList((data: DeviceState) => {
     devices.value = data.devices; // Update device list
+    console.log(devices.value[1]);
     connectionState.value = data.state; // Update connection state
   });
 });
@@ -275,48 +214,34 @@ onUnmounted(() => {
   deviceService.disconnect(); // Disconnect WebSocket
 });
 
-
-
-// Method emit events to StreamH264Converter
-const emit = defineEmits<{
-  (e: 'control-event', message: KeyCodeControlMessage): void
-}>();
-
-// Control handlers for 3 buttons Android navigation
-const handleOverview = () => {
-  const message = new KeyCodeControlMessage(
-    KeyEvent.ACTION_DOWN,
-    KeyEvent.KEYCODE_APP_SWITCH,
-    0,
-    0
-  );
-  streamRef.value?.handleControlMessage(message);
+// Start Broadway stream
+const startBroadwayClick = () => {
+  if (connectionState.value === 'device' && devices.value[1]) {
+    showStream.value = true;
+    visible.value = false; // Hide dialog if it's open
+  } else {
+    console.log("no device connected");
+  }
 };
 
-const handleHome = () => {
-  const message = new KeyCodeControlMessage(
-    KeyEvent.ACTION_DOWN,
-    KeyEvent.KEYCODE_HOME,
-    0,
-    0
-  );
-  streamRef.value?.handleControlMessage(message);
-};
-
-const handleBack = () => {
-  const message = new KeyCodeControlMessage(
-    KeyEvent.ACTION_DOWN,
-    KeyEvent.KEYCODE_BACK,
-    0,
-    0
-  );
-  streamRef.value?.handleControlMessage(message);
-};
-
-
-// const startH264Stream = () => startStream(PlayerType.MSE);
+// Start H264 stream
 const startH264Click = () => {
-  visible.value = true;
+  if (connectionState.value === 'device' && devices.value[1]) {
+    visible.value = true;
+    showStream.value = false; // Hide stream if it's open
+  } else {
+    console.log("no device connected");
+  }
+};
+
+// Close dialog stream
+const closeDialog = () => {
+  visible.value = false;
+};
+
+// Close stream
+const closeStream = () => {
+  showStream.value = false;
 };
 </script>
 
@@ -336,7 +261,7 @@ const startH264Click = () => {
   padding: 0;
 }
 
-:deep(.p-dialog) {
+/* :deep(.p-dialog) {
   margin: 0;
   border-radius: 8px;
   overflow: hidden;
@@ -352,5 +277,5 @@ const startH264Click = () => {
 :deep(.p-dialog-mask) {
   backdrop-filter: blur(8px);
   background-color: rgba(0, 0, 0, 0.4);
-}
+} */
 </style>

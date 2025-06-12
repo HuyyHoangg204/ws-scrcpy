@@ -28,15 +28,15 @@
         <div class="flex flex-col">
           <!-- Manufacturer name and device model -->
           <span class="text-xl font-semibold">
-            {{ devices[1]?.["ro.product.manufacturer"] || "No Device" }}
-            {{ devices[1]?.["ro.product.model"] || "" }}
+            {{ devices[0]?.["ro.product.manufacturer"] || "No Device" }}
+            {{ devices[0]?.["ro.product.model"] || "" }}
           </span>
           <!-- Detailed device information when connected -->
           <span class="text-sm text-gray-500">
             <template v-if="connectionState === 'device'">
-              {{ devices[1]?.udid }} |
-              {{ devices[1]?.["ro.build.version.release"] }} |
-              {{ devices[1]?.["ro.build.version.sdk"] }}
+              {{ devices[0]?.udid }} |
+              {{ devices[0]?.["ro.build.version.release"] }} |
+              {{ devices[0]?.["ro.build.version.sdk"] }}
             </template>
             <template v-else> No device connected </template>
           </span>
@@ -134,19 +134,19 @@
   <!-- Dialog stream -->
   <AndroidDeviceDialog
     v-model:visible="visible"
-    :device="devices[1]"
-    :wsUrl="getWsUrl(devices[1]?.udid)"
+    :device="devices[0]"
+    :wsUrl="getWsUrl(devices[0]?.udid)"
     @close="closeDialog"
   />
 
   <!-- Test Stream Component -->
   <TestStream
     v-if="showStream"
-    :udid="devices[1]?.udid"
-    :playerName="devices[1]?.['ro.product.model']"
-    :wsUrl="getWsUrl(devices[1]?.udid)"
+    :udid="devices[0]?.udid"
+    :playerName="devices[0]?.['ro.product.model']"
+    :wsUrl="getWsUrl(devices[0]?.udid)"
     :width="112"
-    :height="249"
+    :height="240"
     @close="closeStream"
   />
 </template>
@@ -201,7 +201,7 @@ onMounted(() => {
   deviceService.connect(); // Connect WebSocket
   cleanup = deviceService.onDeviceList((data: DeviceState) => {
     devices.value = data.devices; // Update device list
-    console.log(devices.value[1]);
+    console.log(devices.value[0]);
     connectionState.value = data.state; // Update connection state
   });
 });
@@ -216,7 +216,7 @@ onUnmounted(() => {
 
 // Start Broadway stream
 const startBroadwayClick = () => {
-  if (connectionState.value === 'device' && devices.value[1]) {
+  if (connectionState.value === 'device' && devices.value[0]) {
     showStream.value = true;
     visible.value = false; // Hide dialog if it's open
   } else {
@@ -226,7 +226,7 @@ const startBroadwayClick = () => {
 
 // Start H264 stream
 const startH264Click = () => {
-  if (connectionState.value === 'device' && devices.value[1]) {
+  if (connectionState.value === 'device' && devices.value[0]) {
     visible.value = true;
     showStream.value = false; // Hide stream if it's open
   } else {

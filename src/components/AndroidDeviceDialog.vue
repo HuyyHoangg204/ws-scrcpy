@@ -32,6 +32,7 @@
           :udid="props.device?.udid ?? ''"
           :playerName="props.device?.['ro.product.model'] ?? ''"
           :ws="props.wsUrl || (props.device?.udid ? getWsUrl(props.device.udid) : '')"
+          @stream-stats="handleStreamStats"
         />
       </div>
 
@@ -153,6 +154,7 @@ export interface AndroidDeviceDialogProps {
   visible: boolean;
   device: Device | null;
   wsUrl?: string;
+  onUpdateStats?: (deviceId: string, stats: any) => void;
 }
 
 // Define props first
@@ -160,6 +162,7 @@ const props = defineProps<AndroidDeviceDialogProps>();
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
   (e: 'close'): void;
+  (e: 'stream-stats', stats: any): void;
 }>();
 
 const streamRef = ref<InstanceType<typeof StreamH264Converter> | null>(null);
@@ -196,6 +199,11 @@ const handleVisibilityChange = (value: boolean) => {
 const handleClose = () => {
   emit('close');
   emit('update:visible', false);
+};
+
+// Add debug log for stats
+const handleStreamStats = (stats: any) => {
+  emit('stream-stats', stats);
 };
 
 // Control handlers for Android navigation buttons
@@ -332,15 +340,22 @@ const handleBack = () => {
 }
 
 .control-button {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 2rem;
+  height: 2rem;
   cursor: pointer;
-  color: #555
+  color: #555;
+  padding: 0.375rem;
+  transition: all 0.2s ease;
+  
 }
 
 .control-button:hover {
   background-color: #d1d5db;
   border-radius: 9999px;
+  transform: scale(1.3);
+  padding: 0.375rem;
+ 
+
 }
 
 .stream-dialog {

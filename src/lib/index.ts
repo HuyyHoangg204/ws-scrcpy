@@ -29,6 +29,16 @@ export interface DeviceState {
   state: "device" | "disconnected";
 }
 
+export interface StreamStats {
+  deviceId: string;
+  fps: number;
+  networkSpeed: number;
+  timestamp: number;
+}
+
+// Add type for stats update
+export type StreamStatsUpdate = Omit<StreamStats, 'deviceId'>;
+
 // Export types
 export type { WsConfig }
 
@@ -54,24 +64,56 @@ export default {
 export const useAndroidDeviceDialog = () => {
   const visible = ref(false)
   const currentDevice = ref<Device | null>(null)
+  const deviceStats = ref<Map<string, StreamStats>>(new Map())
 
   const openDialog = (device: Device) => {
     console.log('Opening dialog for device:', device);
     currentDevice.value = device
     visible.value = true
-    console.log('Dialog visibility should be true:', visible.value);
+    
   }
 
   const closeDialog = () => {
-    visible.value = false
-    currentDevice.value = null
+    const deviceId = currentDevice.value?.udid;
+    visible.value = false;
+    currentDevice.value = null;
+    // Clear stats when closing dialog
+    if (deviceId) {
+      deviceStats.value.delete(deviceId);
+    }
+  }
+
+  const updateDeviceStats = (deviceId: string, stats: StreamStatsUpdate) => {
+    deviceStats.value.set(deviceId, {
+      deviceId,
+      ...stats
+    });
+  }
+
+  const getDeviceStats = (deviceId: string): StreamStats | undefined => {
+    return deviceStats.value.get(deviceId);
+  }
+
+  const getFormattedNetworkSpeed = (deviceId: string): string => {
+    const stats = deviceStats.value.get(deviceId);
+    if (!stats) return '0 B/s';
+    
+    const bytes = stats.networkSpeed;
+    if (bytes < 1024) return bytes + ' B/s';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB/s';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB/s';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB/s';
   }
 
   return {
     visible,
     currentDevice,
+    deviceStats,
     openDialog,
-    closeDialog
+    closeDialog,
+    updateDeviceStats,
+    getDeviceStats,
+    getFormattedNetworkSpeed
   }
 }
 
@@ -249,4 +291,43 @@ export const useWebSocketConnection = (url: string) => {
     connect,
     disconnect
   }
-} 
+}
+
+// Export composable for stream stats
+export const useStreamStats = () => {
+  const deviceStats = ref<Map<string, StreamStats>>(new Map());
+
+  const updateStats = (deviceId: string, newStats: Omit<StreamStats, 'deviceId'>) => {
+    deviceStats.value.set(deviceId, {
+      deviceId,
+      ...newStats
+    });
+  };
+
+  const getDeviceStats = (deviceId: string): StreamStats | undefined => {
+    return deviceStats.value.get(deviceId);
+  };
+
+  const getAllDeviceStats = (): StreamStats[] => {
+    return Array.from(deviceStats.value.values());
+  };
+
+  const getFormattedNetworkSpeed = (deviceId: string): string => {
+    const stats = deviceStats.value.get(deviceId);
+    if (!stats) return '0 B/s';
+    
+    const bytes = stats.networkSpeed;
+    if (bytes < 1024) return bytes + ' B/s';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB/s';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB/s';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB/s';
+  };
+
+  return {
+    deviceStats,
+    updateStats,
+    getDeviceStats,
+    getAllDeviceStats,
+    getFormattedNetworkSpeed
+  };
+}; 

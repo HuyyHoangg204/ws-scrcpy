@@ -50,7 +50,7 @@ const props = defineProps<{
   show: boolean;
 }>();
 
-const emit = defineEmits(['update:show']);
+const emit = defineEmits(['update:show', 'stream-stats']);
 
 const videoContainer = ref<HTMLDivElement | null>(null);
 const controlButtons = ref<HTMLDivElement | null>(null);
@@ -67,6 +67,13 @@ let streamReceiver: StreamReceiverScrcpy | null = null;
 let requestedVideoSettings: VideoSettings | undefined;
 let fitToScreen: boolean | undefined;
 let keyboardEnabled = ref(false);
+
+// Stats tracking
+let lastStats = {
+  timestamp: Date.now(),
+  frames: 0,
+  bytes: 0
+};
 
 // Add handler to process control event
 const handleControlEvent = (message: KeyCodeControlMessage) => {
@@ -86,8 +93,6 @@ const handleControlEvent = (message: KeyCodeControlMessage) => {
   streamReceiver.sendEvent(upMessage);
 };
 
-
-
 // Event handlers
 const onVideo = (data: ArrayBuffer) => {
   if (!player) {
@@ -102,6 +107,10 @@ const onVideo = (data: ArrayBuffer) => {
     }
     if (player.getState() === STATE.PLAYING) {
       player.pushFrame(new Uint8Array(data));
+      
+      // Update stats
+      lastStats.frames++;
+      lastStats.bytes += data.byteLength;
     }
   } catch (error) {
     console.error("Error processing video frame:", error);
@@ -270,6 +279,11 @@ const stop = () => {
 onUnmounted(() => {
   stop();
   document.body.classList.remove("stream"); // Cleanup body class
+  
+  // Clear stats interval
+  if (statsInterval) {
+    clearInterval(statsInterval);
+  }
 });
 
 // Keyboard event handling
@@ -315,8 +329,6 @@ const setupEventListeners = () => {
     return;
   }
 
-
-
   // Remove existing listeners first to prevent duplicates
   streamReceiver.off("deviceMessage", onDeviceMessage);
   streamReceiver.off("video", onVideo);
@@ -330,7 +342,6 @@ const setupEventListeners = () => {
   streamReceiver.on("clientsStats", onClientsStats);
   streamReceiver.on("displayInfo", onDisplayInfo);
   streamReceiver.on("disconnected", onDisconnected);
-
 };
 
 // Append touchable canvas to DOM
@@ -392,7 +403,34 @@ const handleControlMessage = (message: KeyCodeControlMessage) => {
   streamReceiver.sendEvent(upMessage);
 };
 
-// Lifecycle
+const calculateStats = () => {
+  const now = Date.now();
+  const elapsed = (now - lastStats.timestamp) / 1000; // Convert to seconds
+  
+  if (elapsed > 0) {
+    const fps = Math.round(lastStats.frames / elapsed);
+    const bytesPerSecond = Math.round(lastStats.bytes / elapsed);
+    
+    // Emit stats with correct format
+    emit('stream-stats', {
+      fps,
+      networkSpeed: bytesPerSecond,
+      timestamp: now
+    });
+    
+    // Reset stats
+    lastStats = {
+      timestamp: now,
+      frames: 0,
+      bytes: 0
+    };
+
+  }
+}
+
+// Add interval to log stats
+let statsInterval: number;
+
 onMounted(() => {
   // 1. Initialize video element
   const videoElement = MsePlayer.createElement();
@@ -428,6 +466,7 @@ onMounted(() => {
   );
   player = currentPlayer;
   player.setVideoSettings(currentSettings, fitToScreen, false);
+  player.setShowQualityStats(false);
 
   // Use setParent to append both video and canvas
   if (videoContainer.value) {
@@ -463,6 +502,9 @@ onMounted(() => {
   player.play();
 
   document.body.className = "stream";
+
+  // Start stats tracking
+  statsInterval = window.setInterval(calculateStats, 1000);
 });
 
 // Expose necessary methods
@@ -473,7 +515,6 @@ defineExpose({
   getClientId: () => clientId.value,
   getClientsCount: () => clientsCount.value,
 });
-
 
 </script>
 

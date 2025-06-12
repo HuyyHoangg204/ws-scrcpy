@@ -8,6 +8,7 @@
         :ws="wsUrl"
         :show="true"
         class="stream-content"
+        @stream-stats="onStreamStats"
       />
       <button @click="$emit('close')" class="close-btn">
         × Close
@@ -21,7 +22,8 @@ import { computed, onMounted } from 'vue'
 import { 
   StreamH264Converter, 
   useStreamConfig, 
-  useStreamControl 
+  useStreamControl,
+  useStreamStats 
 } from '../lib'
 
 const props = defineProps({
@@ -59,6 +61,25 @@ const {
   ws: props.wsUrl
 })
 
+// Test stream stats
+const { deviceStats, updateStats, getDeviceStats, getFormattedNetworkSpeed } = useStreamStats();
+
+// Log stats whenever they change
+const onStreamStats = (newStats) => {
+  if (!props.udid) return;
+  
+  updateStats(props.udid, newStats);
+  
+  const stats = getDeviceStats(props.udid);
+  if (stats) {
+    console.log(`Stream Stats for device ${props.udid}:`, {
+      fps: stats.fps,
+      networkSpeed: getFormattedNetworkSpeed(props.udid),
+      timestamp: new Date(stats.timestamp).toLocaleTimeString()
+    });
+  }
+};
+
 // Style cho container
 const containerStyle = computed(() => ({
   width: `${props.width}px`,
@@ -92,8 +113,6 @@ onMounted(() => {
   overflow: hidden;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
-
-
 
 .close-btn {
   position: absolute;
